@@ -1,0 +1,267 @@
+---
+title: "DataExplorationAssignment"
+author: "Natasha, Jill, Erik"
+date: '2023-02-24'
+output: 
+  html_document:
+    toc: true
+    toc_depth: 3
+    toc_float: true
+    number_sections: true
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(fixest)
+library(vtable)
+library(scales)
+library(plotly)
+library(shiny)
+library(ggiraph)
+library(dygraphs)
+library(htmlwidgets)
+library(lubridate)
+```
+# Variable Decriptions
+
+| Base Data Set Variable |  Definition
+|:------    |:-------------------------------------------------     | 
+| `Year`  | The calendar year  |
+| `Name`  | state Name  |
+| `FYEndingDate`  | state end of fiscal year date  |
+| `PropertyTax`  | When the order was placed  |
+| `a`  | The Zip code where the order was delivered  |
+| `b`  | The State where the order delivered  |
+| `c`  | The City where the order was delivered  |
+| `d`  | Which is the population in that ZIP code  |
+| `e`  |  median annual household income in that ZIP |
+| `f`  | which is the annual per-capita income in that ZIP |
+| `g`  | the median age of people in the ZIP code  |
+| `h`  |  number of people of each broad-category race in ZIP code. |
+| `i`  | number of people who are Hispanic in the ZIP code |
+| `j`  | which is the number of US citizens living in the ZIP code  |
+
+```{r, echo=TRUE}
+df_2021 <- read.table(file = "2021_state_tax.txt", header = TRUE, sep = ",")
+vtable(df, lush = TRUE)
+
+```
+
+# 2021 Tax Information Only
+```{r, echo=TRUE}
+# df_2021 <- df_2021 %>% 
+#   mutate(item = case_when(item == 'T01' ~ 'PropertyTaxes', 
+#                           item == 'T09' ~ 'GeneralSalesAndGrossReceiptsTax', 
+#                           item == 'T10' ~ 'AlcoholBeveragesSalesTax', 
+#                           item == 'T11' ~ 'AmusementsSalesTax', 
+#                           item == 'T12' ~ 'InsurancePremiumsSalesTax',
+#                           item == 'T13' ~ 'MotorFuelsSalesTax',
+#                           item == 'T14' ~ 'PariMutuelsSalesTax',
+#                           item == 'T15' ~ 'PublicUtilitiesSalesTax',
+#                           item == 'T16' ~ 'TobaccoProductsSalesTax', 
+#                           item == 'T19' ~ 'OtherSelectiveSalesAndGrossReceiptsTaxes',
+#                           item == 'T20' ~ 'AlcoholicBeverageLicense', 
+#                           item == 'T21' ~ 'AmusementsLicense',
+#                           item == 'T22' ~ 'CorporationInGeneralLicense',
+#                           item == 'T23' ~ 'HuntingAndFishingLicense',
+#                           item == 'T24' ~ 'MotorVehicleLicensing',
+#                           item == 'T25' ~ 'MotorVehicleOperatorsLicense',
+#                           item == 'T27' ~ 'PublicUtilitiesLicense',
+#                           item == 'T28' ~ 'OccupationAndBusinessLicense',
+#                           item == 'T29' ~ 'OtherLicenseTaxes',
+#                           item == 'T40' ~ 'IndividualIncomeTaxes',
+#                           item == 'T41' ~ 'CorporationNetIncomeTaxes',
+#                           item == 'T50' ~ 'DeathAndGiftTaxes',
+#                           item == 'T51' ~ 'DocumentaryAndStockTransferTaxes',
+#                           item == 'T53' ~ 'SeveranceTaxes',
+#                           item == 'T99' ~ 'TaxesNEC')
+#          ) 
+#   
+# 
+# vtable(data, lush = TRUE)
+```
+
+# Historical Database - 1942 (missing some years) -to-present
+```{r, echo=TRUE}
+taxes <- read_csv('STC_Historical_DB.csv') %>%
+  mutate(StateName = as.factor(Name)) %>%
+  select(-State, -Name)
+#summary(taxes)
+vtable(taxes, lush = TRUE)
+```
+
+```{r}
+income_tax <- taxes %>%
+  select(Year, StateName, `IndividualIncomeTax(T40)`) %>%
+  mutate(IndividualIncomeTax = as.numeric(`IndividualIncomeTax(T40)`)) %>%
+  group_by(Year)
+ 
+vtable(income_tax, lush = TRUE)
+
+
+```
+
+
+
+
+```{r}
+taxes1 <- taxes %>%
+   mutate(`PropertyTax(T01)` = as.numeric(`PropertyTax(T01)`),
+         `TotalGenSalesTax(T09)` = as.numeric(`TotalGenSalesTax(T09)`),
+         `AmusementTax(T11)` = as.numeric(`AmusementTax(T11)`),
+         `ParimutuelsTax(T14)` = as.numeric(`ParimutuelsTax(T14)`),
+         `PublicUtilityTax(T15)` = as.numeric(`PublicUtilityTax(T15)`),
+         `AlcoholicBeverageLic(T20)` = as.numeric(`AlcoholicBeverageLic(T20)`),
+         `AmusementLicense T21)` = as.numeric(`AmusementLicense T21)`),
+         `CorporationLicense(T22)` = as.numeric(`CorporationLicense(T22)`),
+         `MotorVehOperLicense(T25)` = as.numeric(`MotorVehOperLicense(T25)`),
+         `PublicUtilityLicense(T27)` = as.numeric(`PublicUtilityLicense(T27)`),
+         `IndividualIncomeTax(T40)` = as.numeric(`IndividualIncomeTax(T40)`),
+         `CorpNetIncomeTax(T41)` = as.numeric(`CorpNetIncomeTax(T41)`),
+         `DeathANDGiftTax(T50)` = as.numeric(`DeathANDGiftTax(T50)`),
+         `DocumumentaryAndStockTransferTax(T51)`= 
+                            as.numeric(`DocumumentaryAndStockTransferTax(T51)`),
+         `SeveranceTax(T53)` = as.numeric(`SeveranceTax(T53)`),
+         `TaxesNEC(T99)` = as.numeric(`TaxesNEC(T99)`)
+         #Year = as.Date(paste(Year, 1, 1, sep = "-"))
+        ) %>%
+  filter(StateName == c('Washington', 'California', 'New York', 'Texas')) %>%
+  group_by(Year, StateName, `IndividualIncomeTax(T40)`) %>%
+  summarize(Totaltax = sum(`IndividualIncomeTax(T40)`))
+vtable(taxes1, lush = TRUE)
+```
+
+
+# Historical Database - DATE CLASS CHANGED TO DATE - 1942 (missing some years) -to-present
+```{r, echo=TRUE}
+taxes1 <- read_csv('STC_Historical_DB.csv') %>%
+  mutate(StateName = as.factor(Name)) %>%
+  select(-State, -Name) %>%
+   mutate(`PropertyTax(T01)` = as.numeric(`PropertyTax(T01)`),
+         `TotalGenSalesTax(T09)` = as.numeric(`TotalGenSalesTax(T09)`),
+         `AmusementTax(T11)` = as.numeric(`AmusementTax(T11)`),
+         `ParimutuelsTax(T14)` = as.numeric(`ParimutuelsTax(T14)`),
+         `PublicUtilityTax(T15)` = as.numeric(`PublicUtilityTax(T15)`),
+         `AlcoholicBeverageLic(T20)` = as.numeric(`AlcoholicBeverageLic(T20)`),
+         `AmusementLicense T21)` = as.numeric(`AmusementLicense T21)`),
+         `CorporationLicense(T22)` = as.numeric(`CorporationLicense(T22)`),
+         `MotorVehOperLicense(T25)` = as.numeric(`MotorVehOperLicense(T25)`),
+         `PublicUtilityLicense(T27)` = as.numeric(`PublicUtilityLicense(T27)`),
+         `IndividualIncomeTax(T40)` = as.numeric(`IndividualIncomeTax(T40)`),
+         `CorpNetIncomeTax(T41)` = as.numeric(`CorpNetIncomeTax(T41)`),
+         `DeathANDGiftTax(T50)` = as.numeric(`DeathANDGiftTax(T50)`),
+         `DocumumentaryAndStockTransferTax(T51)`= 
+                            as.numeric(`DocumumentaryAndStockTransferTax(T51)`),
+         `SeveranceTax(T53)` = as.numeric(`SeveranceTax(T53)`),
+         `TaxesNEC(T99)` = as.numeric(`TaxesNEC(T99)`),
+         Year = as.Date(paste(Year, 1, 1, sep = "-"))
+        )
+vtable(taxes, lush = TRUE)
+```
+
+
+
+
+# Population df
+```{r, echo=TRUE}
+population <- read_csv("population.csv")
+vtable(population, lush = TRUE)
+```
+
+# Joining Taxes df with population df - Have N/A's introduced and need to fix
+```{r}
+df <- taxes %>%
+  left_join(population, by = "State") %>%
+  mutate(Year = as.Date(paste(Year, 1, 1, sep = "-")),
+         Name = as.factor(Name), `PropertyTax(T01)` = as.numeric(`PropertyTax(T01)`),
+         `TotalGenSalesTax(T09)` = as.numeric(`TotalGenSalesTax(T09)`),
+         `AmusementTax(T11)` = as.numeric(`AmusementTax(T11)`),
+         `ParimutuelsTax(T14)` = as.numeric(`ParimutuelsTax(T14)`),
+         `PublicUtilityTax(T15)` = as.numeric(`PublicUtilityTax(T15)`),
+         `AlcoholicBeverageLic(T20)` = as.numeric(`AlcoholicBeverageLic(T20)`),
+         `AmusementLicense T21)` = as.numeric(`AmusementLicense T21)`),
+         `CorporationLicense(T22)` = as.numeric(`CorporationLicense(T22)`),
+         `MotorVehOperLicense(T25)` = as.numeric(`MotorVehOperLicense(T25)`),
+         `PublicUtilityLicense(T27)` = as.numeric(`PublicUtilityLicense(T27)`),
+         `IndividualIncomeTax(T40)` = as.numeric(`IndividualIncomeTax(T40)`),
+         `CorpNetIncomeTax(T41)` = as.numeric(`CorpNetIncomeTax(T41)`),
+         `DeathANDGiftTax(T50)` = as.numeric(`DeathANDGiftTax(T50)`),
+         `DocumumentaryAndStockTransferTax(T51)`= 
+                            as.numeric(`DocumumentaryAndStockTransferTax(T51)`),
+         `SeveranceTax(T53)` = as.numeric(`SeveranceTax(T53)`),
+         `TaxesNEC(T99)` = as.numeric(`TaxesNEC(T99)`),
+         State = as.factor(State)
+         )
+
+vtable(df, lush = TRUE)
+```
+
+# Correlation Matrix for Numerical Variables
+```{r, echo=TRUE}
+eda_corr <- df
+eda_corr <- as.data.frame(eda_corr1)
+corr_simple <- function(data=eda_corr,sig=0.0){
+#convert data to numeric in order to run correlations
+#convert to factor first to keep the integrity of the data - each value will become a number rather than turn into NA
+df_cor <- eda_corr1 %>% mutate_if(is.character, as.factor)
+df_cor <- eda_corr1 %>% mutate_if(is.factor, as.numeric) %>%
+                    mutate_if(is.logical, as.numeric)
+
+#run a correlation and drop the insignificant ones
+corr <- cor(df_cor)
+
+#prepare to drop duplicates and correlations of 1     
+corr[lower.tri(corr,diag=TRUE)] <- NA 
+
+#drop perfect correlations
+corr[corr == 1] <- NA 
+
+#turn into a 3-column table
+corr <- as.data.frame(as.table(corr))
+
+#remove the NA values from above 
+corr <- na.omit(corr) 
+
+#select significant values  
+corr <- subset(corr, abs(Freq) > sig) 
+
+#sort by highest correlation
+corr <- corr[order(-abs(corr$Freq)),] 
+
+#print table
+print(corr)
+
+#turn corr back into matrix in order to plot with corrplot
+mtx_corr <- reshape2::acast(corr, Var1~Var2, value.var="Freq")
+  
+#plot correlations visually
+corrplot(mtx_corr, is.corr=FALSE, tl.col="black", na.label=" ")
+}
+corr_simple()
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
